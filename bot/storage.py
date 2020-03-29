@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Text, Optional
+from typing import Text, Optional, Iterator
 
 import plyvel
 
@@ -27,10 +27,11 @@ class Storage:
             chat_id: Telegram chat ID.
             transaction: expense transaction.
         """
-        key = "-".join((chat_id, datetime.now().strftime("%Y-%m-%d-%H-%M-%S-%f")))
+        key = "-".join((str(chat_id), datetime.now().strftime("%Y-%m-%d-%H-%M-%S-%f")))
         self._db.put(bytes(key.encode("utf-8")), transaction.SerializeToString())
 
-    def find_transactions(self, chat_id: int, year: Optional[int], month: Optional[int], day=Optional[int]):
+    def find_transactions(self, chat_id: int, year: Optional[int] = None, month: Optional[int] = None,
+                          day: Optional[int] = None) -> Iterator[ledger_pb2.ExpenseTransaction]:
         """Gets all transactions for a given chat.
 
         Args:
@@ -39,8 +40,8 @@ class Storage:
             month: month of a transaction.
             day: day of a transaction.
 
-        Returns:
-            an iterator over filtered transactions.
+        Yields:
+            a transaction.
         """
         key_params = []
         if year:
@@ -49,7 +50,7 @@ class Storage:
             key_params.append(str(month))
         if day:
             key_params.append(str(day))
-        key = "-".join((chat_id, *key_params))
+        key = "-".join((str(chat_id), *key_params))
 
         for _, transaction in self._db.iterator(prefix=bytes(key.encode("utf-8"))):
             yield ledger_pb2.ExpenseTransaction().FromString(transaction)
