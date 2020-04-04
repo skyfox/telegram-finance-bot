@@ -1,11 +1,11 @@
+import logging
 import os
-import re
 import sys
 from typing import Text
 
 import alpha_vantage.timeseries as alpha_vantage
 import redis
-import telebot
+import telegram.ext as telegram
 
 import storage
 
@@ -29,11 +29,8 @@ _I18N = {
 }
 
 
-_ALPHAVANTAGE_API_KEY = os.environ.get("ALPHAVANTAGE_API_KEY")
-_TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
-
-
 class State:
+    """State class contains possible FSM states."""
     START_STATE = "start"
     CLARIFY_SYMBOL = 'clarify symbol'
 
@@ -50,84 +47,48 @@ class StateKeeper(redis.Redis):
         return self.set(user_id, state)
 
 
-# @bot.message_handler(func=lambda message: states[message.from_user.id] == _START_STATE)
-# def main_handler(message):
-#     lang = message.from_user.language_code or 'en'
-#     user_id = message.from_user.id
-#     message_text = message.text.lower()
-
-#     if message_text == "/start":
-#         bot.send_message(message.chat.id, _I18N['greeting_message'][lang])
-#     elif "stock price" in message_text:
-#         states[user_id] = _CLARIFY_SYMBOL
-#         bot.send_message(message.chat.id, _I18N['clarify_symbol'][lang])
-#     else:
-#         bot.send_message(message.chat.id, _I18N['do_not_understand'][lang])
-
-
-# @bot.message_handler(func=lambda message: states[message.from_user.id] == _CLARIFY_SYMBOL)
-# def get_quote_handler(message):
-#     lang = message.from_user.language_code or 'en'
-#     user_id = message.from_user.id
-#     message_text = message.text.lower()
-
-#     symbol_info = None
-#     try:
-#         bot.send_chat_action(message.chat.id, "typing")
-#         symbol_info, _ = stock_api.get_quote_endpoint(message_text)
-#     except ValueError:
-#         pass
-
-#     if symbol_info:
-#         response_message = ""
-#         for info, info_value in symbol_info.items():
-#             response_message += "{key}:\t{value}\n".format(
-#                 key=info, value=info_value)
-#         bot.reply_to(message, response_message)
-#         states[user_id] = _START_STATE
-#     else:
-#         bot.reply_to(message, _I18N['unknown_symbol'][lang])
-
-add_transaction_regex = re.compile("[0-9]{0-10}")
-
-
 class FinanceBot:
     def __init__(self, telegram_api_token: Text, alpha_vantage_api_token: Text,
                  redis_address: Text = "localhost", path_to_db: Text = "db/"):
-        self.bot = telebot.TeleBot(telegram_api_token)
+        self.bot = telegram.Updater(token=telegram_api_token, use_context=True)
         self.stock_api = alpha_vantage.TimeSeries(alpha_vantage_api_token)
         self.state = StateKeeper(host=redis_address, decode_responses=True)
         self.storage = storage.Storage(path_to_db)
 
-    def polling(self):
+    def dispatch(self):
+        dispatcher = self.bot.dispatcher
+        dispatcher.add_handler(telegram.CommandHandler(
+            "start", self.handler_start))
 
-        def dispatcher(messages):
-            for message in messages:
-                message_text = message.text.lower()
-                # The very first interaction with the bot.
-                if message_text == "/start":
-                    self.greeting(message)
+    def handler_start(self, update, context):
+        chat_id = update.effective_chat.id
+        lang = update.effective_user.language_code or "en"
+        context.bot.send_message(
+            chat_id=chat_id, text=_I18N["greeting_message"][lang])
 
-        self.bot.set_update_listener(dispatcher)
-        self.bot.polling()
-
-    def greeting(self, message):
-        lang = message.from_user.language_code or 'en'
-        chat_id = message.chat.id
-
-        self.state[chat_id] = State.START_STATE
-        self.bot.send_message(chat_id, _I18N['greeting_message'][lang])
+    def start_polling(self):
+        self.dispatch()
+        self.bot.start_polling()
+        self.bot.idle()
 
 
 def main():
-    if not _ALPHAVANTAGE_API_KEY:
+    telegram_bot_api_token = os.environ.get("TELEGRAM_BOT_TOKEN")
+    alpha_vantage_api_token = os.environ.get("ALPHAVANTAGE_API_KEY")
+    if not alpha_vantage_api_token:
         sys.exit(
             "Alpha Vantage API token not found in ENV variables. Please set ALPHAVANTAGE_API_KEY env variable.")
-    if not _TELEGRAM_BOT_TOKEN:
+    if not telegram_bot_api_token:
         sys.exit(
             "Telegram Bot token not found in ENV variables. Please set TELEGRAM_BOT_TOKEN env variable.")
-    bot = FinanceBot(_TELEGRAM_BOT_TOKEN, _ALPHAVANTAGE_API_KEY)
-    bot.polling()
+
+    logging_level = logging.WARNING
+    if os.environ.get("env") == "dev":
+        logging_level = logging.DEBUG
+    logging.basicConfig(level=logging_level)
+
+    bot = FinanceBot(telegram_bot_api_token, alpha_vantage_api_token)
+    bot.start_polling()
 
 
 if __name__ == "__main__":
