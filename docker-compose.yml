@@ -1,0 +1,43 @@
+version: '3'
+
+services:
+    bot:
+        # Decrease logsize so it won't fill the system
+        logging:
+            options:
+            max-size: "100M"
+            max-file: "10"
+
+        # Build with Dockerfile
+        build: .
+        
+        # Restart container always - after machine reboot or error
+        restart: always
+
+        # Setting up shared volume. In case you change file in current directory, it will change in container also, so you do not need to rebuild the bot. To apply changes do only `docker-compose restart bot`
+        #
+        # This volume will mirror all files. So if you delete them in Container, they will also be deleted in your system. Be careful!
+        volumes:
+        - ".:/usr/src/bot"
+        
+        # Bot start
+        command: "python bot.py" 
+
+        # Environment variables
+        env_file: production.env
+
+# Database volume
+volumes:
+    dbdata:
+
+networks:
+    # Creating database network. Only our bot will access it. Secure.
+    # Instead of IP address, you can access database via it's service name
+    #
+    # EXAMPLE
+    #
+    # database = DatabaseLibrary.connect("my-database:5432")
+    #
+    #
+    db_bridge:
+        driver: bridge
