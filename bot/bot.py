@@ -1,5 +1,6 @@
 import collections
 import datetime
+import json
 import logging
 import os
 import random
@@ -13,24 +14,9 @@ import telegram.ext as telegram
 import ledger_pb2
 import storage
 
-_I18N = {
-    "greeting_message": {
-        "en": "Hello. I am your personal accountant. I am happy to track all of your expenses.",
-        "ru": "Привет. Я - ваш персональных бухгалтер. Я рад следить за всеми вашими расходами."
-    },
-    "do_not_understand": {
-        "en": "Sorry, I don't understand you.",
-        "ru": "Простите, я вас не понимаю."
-    },
-    "transaction_completed": {
-        "en": ("Ok", "Okay", "Recorded", "Added"),
-        "ru": ("Ок", "Хорошо", "Записал", "Добавил")
-    },
-    "transaction_edited": {
-        "en": ("Edited!", "Fixed"),
-        "ru": ("Отредактировано!", "Исправлено")
-    }
-}
+_i18n_data = open("i18n.json", "r")
+_I18N = json.loads(_i18n_data.read())
+_i18n_data.close()
 
 
 class FilterExpense(telegram.BaseFilter):
@@ -53,8 +39,7 @@ filter_expense = FilterExpense()
 
 
 class FinanceBot:
-    def __init__(self, telegram_api_token: Text,
-                 redis_address: Text = "localhost", path_to_db: Text = "db/") -> None:
+    def __init__(self, telegram_api_token: Text, path_to_db: Text = "db/") -> None:
         self.bot = telegram.Updater(token=telegram_api_token, use_context=True)
         self.storage = storage.Storage(path_to_db)
 
@@ -91,7 +76,7 @@ class FinanceBot:
         report = collections.defaultdict(float)
         for transaction in transactions:
             report[transaction.category] += transaction.amount
-        text_report = "\n".join(": ".join((k, str(v)))
+        text_report = "\n".join(";".join((k, str(v)))
                                 for k, v in report.items())
         context.bot.send_message(chat_id=chat_id, text=text_report)
 
@@ -103,18 +88,17 @@ class FinanceBot:
         message_datetime = update.message.date if update.message else update.edited_message.date
         lang = update.effective_user.language_code or "en"
 
+        amount, category = (update.message.text.split() if update.message
+                            else update.edited_message.text.split())
+        transaction = ledger_pb2.ExpenseTransaction(
+            category=category, amount=float(amount))
+
         if update.message:
-            amount, category = update.message.text.split()
-            transaction = ledger_pb2.ExpenseTransaction(
-                category=category, amount=float(amount))
             self.storage.write_transaction(
                 chat_id, message_id, message_datetime, transaction)
             context.bot.send_message(
                 chat_id=chat_id, text=random.choice(_I18N["transaction_completed"][lang]))
         elif update.edited_message:
-            amount, category = update.edited_message.text.split()
-            transaction = ledger_pb2.ExpenseTransaction(
-                category=category, amount=float(amount))
             self.storage.update_transaction(
                 chat_id, message_id, message_datetime, transaction)
             context.bot.send_message(

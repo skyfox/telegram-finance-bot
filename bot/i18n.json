@@ -1,0 +1,34 @@
+{
+    "greeting_message": {
+        "en": "Hello. I am your personal accountant. I am happy to track all of your expenses.",
+        "ru": "Привет. Я - ваш персональных бухгалтер. Я рад следить за всеми вашими расходами."
+    },
+    "do_not_understand": {
+        "en": "Sorry, I don't understand you.",
+        "ru": "Простите, я вас не понимаю."
+    },
+    "transaction_completed": {
+        "en": [
+            "Ok",
+            "Okay",
+            "Recorded",
+            "Added"
+        ],
+        "ru": [
+            "Ок",
+            "Хорошо",
+            "Записал",
+            "Добавил"
+        ]
+    },
+    "transaction_edited": {
+        "en": [
+            "Edited!",
+            "Fixed"
+        ],
+        "ru": [
+            "Отредактировано!",
+            "Исправлено"
+        ]
+    }
+}
