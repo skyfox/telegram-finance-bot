@@ -6,6 +6,13 @@ import plyvel
 import ledger_pb2
 
 
+def _make_key(chat_id: int, message_id: int, message_datetime: datetime) -> Text:
+    key = "-".join((str(chat_id),
+                    message_datetime.strftime("%Y-%m-%d-%H-%M-%S"),
+                    str(message_id)))
+    return bytes(key.encode("utf-8"))
+
+
 class Storage:
     """LevelDB-based data storage for bot data.
 
@@ -20,17 +27,20 @@ class Storage:
         if not self._db.closed:
             self._db.close()
 
-    def write_transaction(self, chat_id: int, transaction: ledger_pb2.ExpenseTransaction) -> None:
+    def write_transaction(self, chat_id: int, message_id: int, message_datetime: datetime, transaction: ledger_pb2.ExpenseTransaction) -> None:
         """Adds expense transaction to the DB.
 
         Args:
             chat_id: Telegram chat ID.
             transaction: expense transaction.
         """
-        key = "-".join((str(chat_id),
-                        datetime.now().strftime("%Y-%m-%d-%H-%M-%S-%f")))
-        self._db.put(bytes(key.encode("utf-8")),
+        self._db.put(_make_key(chat_id, message_id, message_datetime),
                      transaction.SerializeToString())
+
+    def update_transaction(self, chat_id: int, message_id: int, message_datetime: datetime, transaction: ledger_pb2.ExpenseTransaction) -> None:
+        self._db.delete(_make_key(chat_id, message_id, message_datetime))
+        self.write_transaction(chat_id, message_id,
+                               message_datetime, transaction)
 
     def find_transactions(self, chat_id: int, year: Optional[int] = None, month: Optional[int] = None,
                           day: Optional[int] = None) -> Iterator[ledger_pb2.ExpenseTransaction]:

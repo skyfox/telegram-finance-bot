@@ -7,8 +7,6 @@ import re
 import sys
 from typing import Text
 
-import alpha_vantage.timeseries as alpha_vantage
-import redis
 import telegram as telegram_internal
 import telegram.ext as telegram
 
@@ -27,6 +25,10 @@ _I18N = {
     "transaction_completed": {
         "en": ("Ok", "Okay", "Recorded", "Added"),
         "ru": ("Ок", "Хорошо", "Записал", "Добавил")
+    },
+    "transaction_edited": {
+        "en": ("Edited!", "Fixed"),
+        "ru": ("Отредактировано!", "Исправлено")
     }
 }
 
@@ -97,15 +99,26 @@ class FinanceBot:
                         context: telegram.callbackcontext.CallbackContext) -> None:
         """Handles expense message."""
         chat_id = update.effective_chat.id
+        message_id = update.message.message_id if update.message else update.edited_message.message_id
+        message_datetime = update.message.date if update.message else update.edited_message.date
         lang = update.effective_user.language_code or "en"
 
-        amount, category = update.message.text.split()
-        transaction = ledger_pb2.ExpenseTransaction(
-            category=category, amount=float(amount))
-        self.storage.write_transaction(chat_id, transaction)
-
-        context.bot.send_message(
-            chat_id=chat_id, text=random.choice(_I18N["transaction_completed"][lang]))
+        if update.message:
+            amount, category = update.message.text.split()
+            transaction = ledger_pb2.ExpenseTransaction(
+                category=category, amount=float(amount))
+            self.storage.write_transaction(
+                chat_id, message_id, message_datetime, transaction)
+            context.bot.send_message(
+                chat_id=chat_id, text=random.choice(_I18N["transaction_completed"][lang]))
+        elif update.edited_message:
+            amount, category = update.edited_message.text.split()
+            transaction = ledger_pb2.ExpenseTransaction(
+                category=category, amount=float(amount))
+            self.storage.update_transaction(
+                chat_id, message_id, message_datetime, transaction)
+            context.bot.send_message(
+                chat_id=chat_id, text=random.choice(_I18N["transaction_edited"][lang]))
 
     def handler_not_understand(self, update: telegram_internal.Update,
                                context: telegram.callbackcontext.CallbackContext) -> None:
