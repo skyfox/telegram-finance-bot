@@ -224,5 +224,4 @@ dmypy.json
 .idea/vcs.xml
 .vscode/
 bot/__pycache__/
-bot/ledger_pb2.py
 db/
