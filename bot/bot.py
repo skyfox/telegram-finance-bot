@@ -130,7 +130,9 @@ def main():
         logging_level = logging.DEBUG
     logging.basicConfig(level=logging_level)
 
-    bot = FinanceBot(telegram_bot_api_token)
+    storage_path = os.environ.get("PATH_TO_STORAGE", "db/")
+
+    bot = FinanceBot(telegram_bot_api_token, storage_path)
     bot.start_polling()
 
 
