@@ -1,3 +1,4 @@
+import datetime
 import sys
 import os
 import unittest
@@ -14,18 +15,22 @@ class StorageTest(unittest.TestCase):
     """Advanced test cases."""
 
     def setUp(self) -> None:
+        """Creates a temp directory for database files."""
         self.storage = storage.Storage(_DB_TEST_FOLDER)
 
     def tearDown(self) -> None:
+        """Cleans up database files."""
         self.storage._db.close()
         shutil.rmtree(_DB_TEST_FOLDER)
 
     def test_write_transaction(self) -> None:
-        transaction = ledger_pb2.ExpenseTransaction(category="category", amount=42)
-        self.storage.write_transaction(1234, transaction)
+        tr = ledger_pb2.ExpenseTransaction(category="category", amount=42)
+        dt = datetime.datetime.now()
+        self.storage.write_transaction(chat_id=42, message_id=21,
+                                       message_datetime=dt, transaction=tr)
         result = ledger_pb2.ExpenseTransaction().FromString(
-            [t for t in self.storage._db.iterator(prefix=b"1234")][0][1])
-        self.assertEqual(transaction, result)
+            [t for t in self.storage._db.iterator(prefix=b"42-")][0][1])
+        self.assertEqual(tr, result)
 
     def test_find_transactions(self) -> None:
         transaction_1 = ledger_pb2.ExpenseTransaction(category="category1", amount=100)
