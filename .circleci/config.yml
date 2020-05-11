@@ -6,14 +6,13 @@ orbs:
 jobs:
   build-and-test:
     executor: python/default
-    working_directory: ~/telegram-finance-bot/tests
     steps:
       - checkout
       - python/load-cache
       - python/install-deps
       - python/save-cache
       - run:
-          command: python storage_tests.py
+          command: python tests/storage_tests.py
           name: Storage Module Test
 
 workflows:
