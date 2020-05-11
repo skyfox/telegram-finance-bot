@@ -1,3 +1,5 @@
+[![CircleCI](https://circleci.com//gh/skyfox/telegram-finance-bot.svg?style=svg)](https://circleci.com/gh/skyfox/telegram-finance-bot)
+
 # Telegram Finance Bot
 
 The bot helps you to track your expenses and generates monthly reports.
