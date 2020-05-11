@@ -1,3 +1,5 @@
+"""Telegram bot for expenses tracking."""
+
 import collections
 import datetime
 import json
@@ -27,7 +29,7 @@ class FilterExpense(telegram.BaseFilter):
 
     def filter(self, update: telegram_internal.Update) -> bool:
         """Matches update's text with the regex."""
-        # Mathes "10 grocery", "12.82 shopping"
+        # Matches "10 grocery", "12.82 shopping"
         # Does not match "12.82 shopping and car"
         pattern = r"^[0-9]+\.{0,1}[0-9]* [a-zA-Z]*$"
         if re.match(pattern, update.text):
@@ -38,7 +40,27 @@ class FilterExpense(telegram.BaseFilter):
 filter_expense = FilterExpense()
 
 
+def handler_start(update: telegram_internal.Update,
+                  context: telegram.callbackcontext.CallbackContext) -> None:
+    """Handles /start commands and welcomes users."""
+    chat_id = update.effective_chat.id
+    lang = update.effective_user.language_code or "en"
+    context.bot.send_message(
+        chat_id=chat_id, text=_I18N["greeting_message"][lang])
+
+
+def handler_not_understand(update: telegram_internal.Update,
+                           context: telegram.callbackcontext.CallbackContext) -> None:
+    """Handle all other messages."""
+    chat_id = update.effective_chat.id
+    lang = update.effective_user.language_code or "en"
+    context.bot.send_message(
+        chat_id=chat_id, text=_I18N["do_not_understand"][lang])
+
+
 class FinanceBot:
+    """The main class of the bot."""
+
     def __init__(self, telegram_api_token: Text, path_to_db: Text = "db/") -> None:
         self.bot = telegram.Updater(token=telegram_api_token, use_context=True)
         self.storage = storage.Storage(path_to_db)
@@ -47,7 +69,7 @@ class FinanceBot:
         """Dispatches all active handlers."""
         dispatcher = self.bot.dispatcher
 
-        start_handler = telegram.CommandHandler("start", self.handler_start)
+        start_handler = telegram.CommandHandler("start", handler_start)
         dispatcher.add_handler(start_handler)
         expense_handler = telegram.MessageHandler(
             filter_expense, self.handler_expense)
@@ -55,16 +77,8 @@ class FinanceBot:
         report_handler = telegram.CommandHandler("report", self.handler_report)
         dispatcher.add_handler(report_handler)
         unknown_handler = telegram.MessageHandler(
-            telegram.Filters.all, self.handler_not_understand)
+            telegram.Filters.all, handler_not_understand)
         dispatcher.add_handler(unknown_handler)
-
-    def handler_start(self, update: telegram_internal.Update,
-                      context: telegram.callbackcontext.CallbackContext) -> None:
-        """Handles /start commands and welcomes users."""
-        chat_id = update.effective_chat.id
-        lang = update.effective_user.language_code or "en"
-        context.bot.send_message(
-            chat_id=chat_id, text=_I18N["greeting_message"][lang])
 
     def handler_report(self, update: telegram_internal.Update,
                        context: telegram.callbackcontext.CallbackContext) -> None:
@@ -104,16 +118,8 @@ class FinanceBot:
             context.bot.send_message(
                 chat_id=chat_id, text=random.choice(_I18N["transaction_edited"][lang]))
 
-    def handler_not_understand(self, update: telegram_internal.Update,
-                               context: telegram.callbackcontext.CallbackContext) -> None:
-        """Handle all other messages."""
-        chat_id = update.effective_chat.id
-        lang = update.effective_user.language_code or "en"
-        context.bot.send_message(
-            chat_id=chat_id, text=_I18N["do_not_understand"][lang])
-
     def start_polling(self) -> None:
-        """Prepeares the bot and starts polling."""
+        """Preps the bot and starts polling."""
         self.dispatch()
         self.bot.start_polling()
         self.bot.idle()
