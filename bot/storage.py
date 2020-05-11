@@ -40,6 +40,15 @@ class Storage:
         self._db.put(_make_key(chat_id, message_id, message_datetime),
                      transaction.SerializeToString())
 
+    def delete_transaction(self, chat_id: int, message_id: int, message_datetime: datetime) -> None:
+        """Deletes the transaction.
+        Args:
+            chat_id: Telegram chat ID.
+            message_id: Telegram message ID.
+            message_datetime: Telegram message date and time.
+        """
+        self._db.delete(_make_key(chat_id, message_id, message_datetime))
+
     def update_transaction(self, chat_id: int, message_id: int, message_datetime: datetime,
                            transaction: ledger_pb2.ExpenseTransaction) -> None:
         """Updates the transaction via deletion and insertion.
@@ -50,7 +59,7 @@ class Storage:
             message_datetime: Telegram message date and time.
             transaction: expense transaction.
         """
-        self._db.delete(_make_key(chat_id, message_id, message_datetime))
+        self.delete_transaction(chat_id, message_id, message_datetime)
         self.write_transaction(chat_id, message_id, message_datetime, transaction)
 
     def find_transactions(self, chat_id: int, year: Optional[int] = None, month: Optional[int] = None,

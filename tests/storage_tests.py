@@ -32,6 +32,28 @@ class StorageTest(unittest.TestCase):
             [t for t in self.storage._db.iterator(prefix=b"42-")][0][1])
         self.assertEqual(tr, result)
 
+    def test_delete_transaction(self) -> None:
+        tr = ledger_pb2.ExpenseTransaction(category="category", amount=42)
+        dt = datetime.datetime.now()
+        self.storage.write_transaction(chat_id=42, message_id=21,
+                                       message_datetime=dt, transaction=tr)
+        self.storage.delete_transaction(chat_id=42, message_id=21, message_datetime=dt)
+        # The database should store 0 transactions.
+        result = len([t for t in self.storage._db.iterator(prefix=b"42-")])
+        self.assertFalse(result)
+
+    def test_update_transaction(self) -> None:
+        tr_origin = ledger_pb2.ExpenseTransaction(category="category", amount=100)
+        dt = datetime.datetime.now()
+        self.storage.write_transaction(chat_id=42, message_id=21,
+                                       message_datetime=dt, transaction=tr_origin)
+        tr_updated = ledger_pb2.ExpenseTransaction(category="category", amount=99)
+        self.storage.update_transaction(chat_id=42, message_id=21,
+                                        message_datetime=dt, transaction=tr_updated)
+        result = ledger_pb2.ExpenseTransaction().FromString(
+            [t for t in self.storage._db.iterator(prefix=b"42-")][0][1])
+        self.assertEqual(tr_updated, result)
+
     def test_find_transactions(self) -> None:
         transaction_1 = ledger_pb2.ExpenseTransaction(category="category1", amount=100)
         transaction_2 = ledger_pb2.ExpenseTransaction(category="category1", amount=300)
